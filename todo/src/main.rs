@@ -13,41 +13,26 @@ struct Todo {
     completed: Option<NaiveDate>,
     title: String,
     due: Option<NaiveDate>,
+    start: Option<NaiveDate>,
     repeat: Option<Duration>,
     repeat_type: RepeatType,
-}
-
-struct TodoList {
-    items: Vec<Todo>,
+    tags: Vec<String>,
+    sub_tasks: Vec<Todo>,
+    dependencies: Vec<Todo>,
 }
 
 impl Todo {
-    fn new(
-        title: String,
-        due: Option<NaiveDate>,
-        repeat: Option<Duration>,
-        repeat_type: Option<RepeatType>,
-    ) -> Todo {
-        let rt = match repeat_type {
-            Some(e) => e,
-            None => RepeatType::FromCompleted,
-        };
-        Todo {
-            completed: None,
-            title,
-            due,
-            repeat,
-            repeat_type: rt,
-        }
-    }
-
     fn from_title(title: String) -> Todo {
         return Todo {
             completed: None,
             title,
             due: None,
+            start: None,
             repeat: None,
             repeat_type: RepeatType::FromCompleted,
+            tags: Vec::new(),
+            sub_tasks: Vec::new(),
+            dependencies: Vec::new(),
         };
     }
 
@@ -62,7 +47,7 @@ impl Todo {
         };
     }
 
-    fn set_repeat(&mut self, rule: String, from_completed: bool) {
+    fn set_repeat(&mut self, rule: String) {
         self.repeat = match duration_str::parse_std(rule) {
             Ok(d) => match Duration::from_std(d) {
                 Ok(d) => Some(d),
@@ -70,6 +55,9 @@ impl Todo {
             },
             Err(error) => panic!("Could not parse duration {}", error),
         };
+    }
+
+    fn set_repeat_type(&mut self, from_completed: bool) {
         self.repeat_type = match from_completed {
             true => RepeatType::FromCompleted,
             false => RepeatType::FromDue,
@@ -120,20 +108,15 @@ impl ToString for Todo {
     }
 }
 
+#[derive(Clone)]
+struct TodoList {
+    items: Vec<Todo>,
+}
+
 impl TodoList {
     fn new() -> TodoList {
         let v = Vec::new();
         return TodoList { items: v };
-    }
-
-    fn from_into_iter(l: impl IntoIterator<Item = String>) -> TodoList {
-        let iter = l.into_iter();
-        let mut tdl = TodoList::new();
-
-        for e in iter {
-            tdl.add(Todo::from_title(e));
-        }
-        return tdl;
     }
 
     fn complete(&mut self, i: usize) {
@@ -151,24 +134,58 @@ impl TodoList {
         self.items[i].set_due_iso8601(s);
     }
 
+    fn set_repeat(&mut self, i: usize, s: String) {
+        self.items[i].set_repeat(s);
+    }
+
+    fn set_repeat_type(&mut self, i: usize, from_completed: bool) {
+        self.items[i].set_repeat_type(from_completed);
+    }
+
     fn add(&mut self, e: Todo) {
         self.items.push(e);
+    }
+
+    fn filter(&self, predicate: for<'a> fn(&'a Todo) -> bool) -> TodoList {
+        let tdl = self.clone();
+        return tdl.into_iter().filter(predicate).collect();
+    }
+}
+
+impl IntoIterator for TodoList {
+    type Item = Todo;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.items.into_iter()
+    }
+}
+
+impl FromIterator<Todo> for TodoList {
+    fn from_iter<I: IntoIterator<Item = Todo>>(l: I) -> Self {
+        let iter = l.into_iter();
+        let mut tdl = TodoList::new();
+
+        for e in iter {
+            tdl.add(e);
+        }
+        return tdl;
     }
 }
 
 fn main() {
     let l = [
-        String::from("Clean"),
-        String::from("Laundry"),
-        String::from("Cook"),
+        Todo::from_title(String::from("Clean")),
+        Todo::from_title(String::from("Laundry")),
+        Todo::from_title(String::from("Cook")),
     ];
 
-    let mut tdl = TodoList::from_into_iter(l);
+    let mut tdl = TodoList::from_iter(l);
 
     loop {
         for (i, e) in tdl.items.iter_mut().enumerate() {
             // Todo: add to_string() for todolist.
-            e.set_repeat(String::from("4d"), false);
+            e.set_repeat(String::from("4d"));
             println!("{i} {}", e.to_string());
         }
 
@@ -188,12 +205,39 @@ fn main() {
         };
 
         match (action.as_str(), n) {
-            // TODO: Add mode due date.
             ("c", Some(e)) => tdl.complete(e),
-            ("d", Some(e)) => println!("{} {}", "due", e),
-            ("r", Some(e)) => println!("{} {}", "repeat", e),
+            ("d", Some(e)) => {
+                println!("Enter yyyy-mm-dd: ");
+                inp = String::new();
+                io::stdin()
+                    .read_line(&mut inp)
+                    .expect("Failed to read line");
+                inp = String::from(inp.trim());
+                tdl.set_due_iso8601(e, inp)
+            }
+            ("r", Some(e)) => {
+                println!("Enter yyyy-mm-dd: ");
+                inp = String::new();
+                io::stdin()
+                    .read_line(&mut inp)
+                    .expect("Failed to read line");
+                inp = String::from(inp.trim());
+                tdl.set_repeat(e, inp)
+            }
             ("t", Some(e)) => println!("{} {}", "title", e),
-            ("rt", Some(e)) => println!("{} {}", "repeat type", e),
+            ("rt", Some(e)) => {
+                println!("d: from due c: from completed");
+                inp = String::new();
+                io::stdin()
+                    .read_line(&mut inp)
+                    .expect("Failed to read line");
+                inp = String::from(inp.trim());
+                match inp.as_str() {
+                    "c" => tdl.set_repeat_type(e, true),
+                    "d" => tdl.set_repeat_type(e, false),
+                    _ => continue,
+                }
+            }
             ("q", _) => break,
             (_, _) => continue,
         }
