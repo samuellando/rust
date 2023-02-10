@@ -35,6 +35,15 @@ fn main() {
         };
 
         match (action.as_str(), n) {
+            ("n", _) => {
+                println!("enter new title: ");
+                inp = String::new();
+                io::stdin()
+                    .read_line(&mut inp)
+                    .expect("Failed to read line");
+                inp = String::from(inp.trim());
+                tdl.add(Todo::from_title(inp));
+            }
             ("c", Some(e)) => tdl.complete(e),
             ("d", Some(e)) => {
                 println!("Enter yyyy-mm-dd: ");
@@ -54,7 +63,15 @@ fn main() {
                 inp = String::from(inp.trim());
                 tdl.set_repeat(e, inp)
             }
-            ("t", Some(e)) => println!("{} {}", "title", e),
+            ("t", Some(e)) => {
+                println!("enter new title: ");
+                inp = String::new();
+                io::stdin()
+                    .read_line(&mut inp)
+                    .expect("Failed to read line");
+                inp = String::from(inp.trim());
+                tdl.set_title(e, inp);
+            }
             ("rt", Some(e)) => {
                 println!("d: from due c: from completed");
                 inp = String::new();

@@ -22,6 +22,10 @@ impl TodoList {
         self.items[i].set_due_ymd(y, m, d);
     }
 
+    pub fn set_title(&mut self, i: usize, t: String) {
+        self.items[i].set_title(t);
+    }
+
     pub fn set_due_iso8601(&mut self, i: usize, s: String) {
         self.items[i].set_due_iso8601(s);
     }

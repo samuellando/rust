@@ -39,6 +39,10 @@ impl Todo {
         self.due = NaiveDate::from_ymd_opt(year, month, day)
     }
 
+    pub fn set_title(&mut self, t: String) {
+        self.title = t;
+    }
+
     pub fn set_due_iso8601(&mut self, s: String) {
         self.due = match NaiveDate::parse_from_str(s.as_str(), "%Y-%m-%d") {
             Ok(e) => Some(e),
