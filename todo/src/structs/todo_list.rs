@@ -30,6 +30,10 @@ impl TodoList {
         self.items[i].set_due_iso8601(s);
     }
 
+    pub fn set_completed_iso8601(&mut self, i: usize, s: String) {
+        self.items[i].set_completed_iso8601(s);
+    }
+
     pub fn set_repeat(&mut self, i: usize, s: String) {
         self.items[i].set_repeat(s);
     }

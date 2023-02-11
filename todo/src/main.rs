@@ -45,6 +45,15 @@ fn main() {
                 tdl.add(Todo::from_title(inp));
             }
             ("c", Some(e)) => tdl.complete(e),
+            ("cd", Some(e)) => {
+                println!("Enter yyyy-mm-dd: ");
+                inp = String::new();
+                io::stdin()
+                    .read_line(&mut inp)
+                    .expect("Failed to read line");
+                inp = String::from(inp.trim());
+                tdl.set_completed_iso8601(e, inp)
+            }
             ("d", Some(e)) => {
                 println!("Enter yyyy-mm-dd: ");
                 inp = String::new();

@@ -68,6 +68,11 @@ impl Todo {
     }
 
     pub fn complete(&mut self) -> Option<Todo> {
+        // Because we can't recomplete tasks.
+        if self.completed.is_some() {
+            return None;
+        }
+
         let mut t = self.clone();
         let dt = Local::now();
         let d = dt.date_naive();
@@ -83,6 +88,13 @@ impl Todo {
                 t.due = Some(d + e);
                 Some(t)
             }
+        };
+    }
+
+    pub fn set_completed_iso8601(&mut self, s: String) {
+        self.completed = match NaiveDate::parse_from_str(s.as_str(), "%Y-%m-%d") {
+            Ok(e) => Some(e),
+            Err(_) => None,
         };
     }
 }
