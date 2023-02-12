@@ -1,4 +1,6 @@
 use crate::Todo;
+use std::ops::Index;
+use std::ops::IndexMut;
 
 #[derive(Clone)]
 pub struct TodoList {
@@ -74,5 +76,19 @@ impl FromIterator<Todo> for TodoList {
             tdl.add(e);
         }
         return tdl;
+    }
+}
+
+impl Index<usize> for TodoList {
+    type Output = Todo;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        return &self.items[index];
+    }
+}
+
+impl IndexMut<usize> for TodoList {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        return &mut self.items[index];
     }
 }
