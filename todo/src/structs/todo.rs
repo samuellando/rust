@@ -50,6 +50,13 @@ impl Todo {
         };
     }
 
+    pub fn set_start_iso8601(&mut self, s: String) {
+        self.start = match NaiveDate::parse_from_str(s.as_str(), "%Y-%m-%d") {
+            Ok(e) => Some(e),
+            Err(_) => None,
+        };
+    }
+
     pub fn set_repeat(&mut self, rule: String) {
         self.repeat = match duration_str::parse_std(rule) {
             Ok(d) => match Duration::from_std(d) {
@@ -104,6 +111,10 @@ impl ToString for Todo {
         let mut s = format!("{}", self.title);
         s = match self.due {
             Some(e) => format!("{} 📅 {}", s, e.to_string()),
+            None => s,
+        };
+        s = match self.start {
+            Some(e) => format!("{} ✈️ {}", s, e.to_string()),
             None => s,
         };
         s = match self.repeat {
