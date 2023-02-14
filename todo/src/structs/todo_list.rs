@@ -13,41 +13,6 @@ impl TodoList {
         return TodoList { items: v };
     }
 
-    pub fn complete(&mut self, i: usize) {
-        match self.items[i].complete() {
-            Some(e) => self.add(e),
-            None => (),
-        };
-    }
-
-    pub fn set_due_ymd(&mut self, i: usize, y: i32, m: u32, d: u32) {
-        self.items[i].set_due_ymd(y, m, d);
-    }
-
-    pub fn set_title(&mut self, i: usize, t: String) {
-        self.items[i].set_title(t);
-    }
-
-    pub fn set_due_iso8601(&mut self, i: usize, s: String) {
-        self.items[i].set_due_iso8601(s);
-    }
-
-    pub fn set_start_iso8601(&mut self, i: usize, s: String) {
-        self.items[i].set_start_iso8601(s);
-    }
-
-    pub fn set_completed_iso8601(&mut self, i: usize, s: String) {
-        self.items[i].set_completed_iso8601(s);
-    }
-
-    pub fn set_repeat(&mut self, i: usize, s: String) {
-        self.items[i].set_repeat(s);
-    }
-
-    pub fn set_repeat_type(&mut self, i: usize, from_completed: bool) {
-        self.items[i].set_repeat_type(from_completed);
-    }
-
     pub fn add(&mut self, e: Todo) {
         self.items.push(e);
     }

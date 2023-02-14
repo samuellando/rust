@@ -44,7 +44,10 @@ fn main() {
                 inp = String::from(inp.trim());
                 tdl.add(Todo::from_title(inp));
             }
-            ("c", Some(e)) => tdl.complete(e),
+            ("c", Some(e)) => match tdl[e].complete() {
+                Some(e) => tdl.add(e),
+                None => (),
+            },
             ("cd", Some(e)) => {
                 println!("Enter yyyy-mm-dd: ");
                 inp = String::new();
@@ -52,7 +55,7 @@ fn main() {
                     .read_line(&mut inp)
                     .expect("Failed to read line");
                 inp = String::from(inp.trim());
-                tdl.set_completed_iso8601(e, inp)
+                tdl[e].set_completed_iso8601(inp)
             }
             ("sd", Some(e)) => {
                 println!("Enter yyyy-mm-dd: ");
@@ -61,7 +64,7 @@ fn main() {
                     .read_line(&mut inp)
                     .expect("Failed to read line");
                 inp = String::from(inp.trim());
-                tdl.set_start_iso8601(e, inp)
+                tdl[e].set_start_iso8601(inp)
             }
             ("d", Some(e)) => {
                 println!("Enter yyyy-mm-dd: ");
@@ -70,7 +73,7 @@ fn main() {
                     .read_line(&mut inp)
                     .expect("Failed to read line");
                 inp = String::from(inp.trim());
-                tdl.set_due_iso8601(e, inp)
+                tdl[e].set_due_iso8601(inp)
             }
             ("r", Some(e)) => {
                 println!("Enter duration: ");
@@ -79,7 +82,7 @@ fn main() {
                     .read_line(&mut inp)
                     .expect("Failed to read line");
                 inp = String::from(inp.trim());
-                tdl.set_repeat(e, inp)
+                tdl[e].set_repeat(inp)
             }
             ("t", Some(e)) => {
                 println!("enter new title: ");
@@ -88,7 +91,7 @@ fn main() {
                     .read_line(&mut inp)
                     .expect("Failed to read line");
                 inp = String::from(inp.trim());
-                tdl.set_title(e, inp);
+                tdl[e].set_title(inp);
             }
             ("rt", Some(e)) => {
                 println!("d: from due c: from completed");
@@ -98,8 +101,8 @@ fn main() {
                     .expect("Failed to read line");
                 inp = String::from(inp.trim());
                 match inp.as_str() {
-                    "c" => tdl.set_repeat_type(e, true),
-                    "d" => tdl.set_repeat_type(e, false),
+                    "c" => tdl[e].set_repeat_type(true),
+                    "d" => tdl[e].set_repeat_type(false),
                     _ => continue,
                 }
             }
