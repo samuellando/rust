@@ -18,6 +18,7 @@ pub struct Todo {
     tags: Vec<String>,
     sub_tasks: Vec<Todo>,
     dependencies: Vec<Todo>,
+    duration: Option<Duration>,
 }
 
 impl Todo {
@@ -32,6 +33,7 @@ impl Todo {
             tags: Vec::new(),
             sub_tasks: Vec::new(),
             dependencies: Vec::new(),
+            duration: None,
         };
     }
 
@@ -59,6 +61,16 @@ impl Todo {
 
     pub fn set_repeat(&mut self, rule: String) {
         self.repeat = match duration_str::parse_std(rule) {
+            Ok(d) => match Duration::from_std(d) {
+                Ok(d) => Some(d),
+                Err(error) => panic!("Could not parse duration {}", error),
+            },
+            Err(error) => panic!("Could not parse duration {}", error),
+        };
+    }
+
+    pub fn set_duration(&mut self, rule: String) {
+        self.duration = match duration_str::parse_std(rule) {
             Ok(d) => match Duration::from_std(d) {
                 Ok(d) => Some(d),
                 Err(error) => panic!("Could not parse duration {}", error),
@@ -109,12 +121,16 @@ impl Todo {
 impl ToString for Todo {
     fn to_string(&self) -> String {
         let mut s = format!("{}", self.title);
-        s = match self.due {
-            Some(e) => format!("{} 📅 {}", s, e.to_string()),
+        s = match self.duration {
+            Some(e) => format!("{} 🕒 {}", s, format!("{} minutes", e.num_minutes())),
             None => s,
         };
         s = match self.start {
             Some(e) => format!("{} ✈️ {}", s, e.to_string()),
+            None => s,
+        };
+        s = match self.due {
+            Some(e) => format!("{} 📅 {}", s, e.to_string()),
             None => s,
         };
         s = match self.repeat {

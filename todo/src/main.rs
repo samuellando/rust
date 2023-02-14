@@ -106,6 +106,15 @@ fn main() {
                     _ => continue,
                 }
             }
+            ("dur", Some(e)) => {
+                println!("Enter duration: ");
+                inp = String::new();
+                io::stdin()
+                    .read_line(&mut inp)
+                    .expect("Failed to read line");
+                inp = String::from(inp.trim());
+                tdl[e].set_duration(inp)
+            }
             ("q", _) => break,
             (_, _) => continue,
         }
