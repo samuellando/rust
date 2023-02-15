@@ -1,20 +1,40 @@
-use chrono::{Duration, Local, NaiveDate};
-use duration_str;
+use chrono::{offset::TimeZone, Duration, Local, LocalResult, NaiveDateTime};
+use core::str::FromStr;
+use core::time::Duration as StdDuration;
+use cron::Schedule;
+use duration_human::DurationHuman;
+use std::cmp::max;
 
 #[derive(Clone)]
-enum RepeatType {
-    FromCompleted,
-    FromDue,
+enum Repeat {
+    FromCompleted(Duration),
+    FromDue(Duration),
+    Every(Schedule),
+}
+
+impl ToString for Repeat {
+    fn to_string(&self) -> String {
+        match self {
+            Repeat::FromCompleted(d) => match d.to_std() {
+                Ok(d) => format!("{} after completed", DurationHuman::from(d)),
+                Err(_) => panic!("Unexpected"),
+            },
+            Repeat::FromDue(d) => match d.to_std() {
+                Ok(d) => format!("after {}", DurationHuman::from(d)),
+                Err(_) => panic!("Unexpected"),
+            },
+            Repeat::Every(s) => format!("every {}", s.to_string()),
+        }
+    }
 }
 
 #[derive(Clone)]
 pub struct Todo {
-    completed: Option<NaiveDate>,
+    completed: Option<NaiveDateTime>,
     title: String,
-    due: Option<NaiveDate>,
-    start: Option<NaiveDate>,
-    repeat: Option<Duration>,
-    repeat_type: RepeatType,
+    due: Option<NaiveDateTime>,
+    start: Option<NaiveDateTime>,
+    repeat: Option<Repeat>,
     tags: Vec<String>,
     sub_tasks: Vec<Todo>,
     dependencies: Vec<Todo>,
@@ -29,7 +49,6 @@ impl Todo {
             due: None,
             start: None,
             repeat: None,
-            repeat_type: RepeatType::FromCompleted,
             tags: Vec::new(),
             sub_tasks: Vec::new(),
             dependencies: Vec::new(),
@@ -37,52 +56,63 @@ impl Todo {
         };
     }
 
-    pub fn set_due_ymd(&mut self, year: i32, month: u32, day: u32) {
-        self.due = NaiveDate::from_ymd_opt(year, month, day)
-    }
-
     pub fn set_title(&mut self, t: String) {
         self.title = t;
     }
 
     pub fn set_due_iso8601(&mut self, s: String) {
-        self.due = match NaiveDate::parse_from_str(s.as_str(), "%Y-%m-%d") {
+        let fmt = "%Y-%m-%d %H:%M:%S";
+        self.due = match NaiveDateTime::parse_from_str(s.as_str(), fmt) {
             Ok(e) => Some(e),
-            Err(_) => None,
+            Err(_) => match NaiveDateTime::parse_from_str(&format!("{} 11:59:59", s), fmt) {
+                Ok(e) => Some(e),
+                Err(_) => None,
+            },
         };
     }
 
     pub fn set_start_iso8601(&mut self, s: String) {
-        self.start = match NaiveDate::parse_from_str(s.as_str(), "%Y-%m-%d") {
+        let fmt = "%Y-%m-%d %H:%M:%S";
+        self.start = match NaiveDateTime::parse_from_str(s.as_str(), fmt) {
             Ok(e) => Some(e),
-            Err(_) => None,
+            Err(_) => match NaiveDateTime::parse_from_str(&format!("{} 11:59:59", s), fmt) {
+                Ok(e) => Some(e),
+                Err(_) => None,
+            },
         };
     }
 
     pub fn set_repeat(&mut self, rule: String) {
-        self.repeat = match duration_str::parse_std(rule) {
-            Ok(d) => match Duration::from_std(d) {
-                Ok(d) => Some(d),
-                Err(error) => panic!("Could not parse duration {}", error),
-            },
-            Err(error) => panic!("Could not parse duration {}", error),
-        };
+        self.repeat = match Schedule::from_str(&rule) {
+            Ok(d) => Some(Repeat::Every(d)),
+            Err(_) => {
+                let rulel = rule.to_lowercase();
+                let v = rulel.split("from").collect::<Vec<&str>>();
+
+                let dur = match DurationHuman::try_from(v[0]) {
+                    Ok(e) => match Duration::from_std(StdDuration::from(&e)) {
+                        Ok(e) => e,
+                        Err(_) => return,
+                    },
+                    Err(_) => return,
+                };
+
+                if v.len() > 1 && String::from(v[1]).contains("c") {
+                    Some(Repeat::FromCompleted(dur))
+                } else {
+                    Some(Repeat::FromDue(dur))
+                }
+            }
+        }
     }
 
     pub fn set_duration(&mut self, rule: String) {
-        self.duration = match duration_str::parse_std(rule) {
-            Ok(d) => match Duration::from_std(d) {
+        self.duration = match DurationHuman::try_from(rule.as_str()) {
+            Ok(d) => match Duration::from_std(StdDuration::from(&d)) {
                 Ok(d) => Some(d),
                 Err(error) => panic!("Could not parse duration {}", error),
             },
             Err(error) => panic!("Could not parse duration {}", error),
-        };
-    }
-
-    pub fn set_repeat_type(&mut self, from_completed: bool) {
-        self.repeat_type = match from_completed {
-            true => RepeatType::FromCompleted,
-            false => RepeatType::FromDue,
         };
     }
 
@@ -94,24 +124,39 @@ impl Todo {
 
         let mut t = self.clone();
         let dt = Local::now();
-        let d = dt.date_naive();
+        let d = dt.naive_local();
         self.completed = Some(d);
 
-        return match (self.due, self.repeat, &self.repeat_type) {
-            (_, None, _) => None,
-            (Some(due), Some(e), RepeatType::FromDue) => {
-                t.due = Some(due + e);
+        return match (self.due, &self.repeat) {
+            (_, None) => None,
+            (Some(due), Some(Repeat::FromDue(d))) => {
+                t.due = Some(due + d.clone());
                 Some(t)
             }
-            (_, Some(e), _) => {
-                t.due = Some(d + e);
+            (_, Some(Repeat::FromDue(dur))) | (_, Some(Repeat::FromCompleted(dur))) => {
+                t.due = Some(d + dur.clone());
+                Some(t)
+            }
+            (_, Some(Repeat::Every(e))) => {
+                let after = match self.due {
+                    Some(d) => match Local.from_local_datetime(&d) {
+                        LocalResult::None => dt,
+                        LocalResult::Single(e) => max(e, dt),
+                        LocalResult::Ambiguous(_, _) => dt,
+                    },
+                    None => dt,
+                };
+                t.due = match e.after(&after).next() {
+                    Some(e) => Some(e.naive_local()),
+                    None => None,
+                };
                 Some(t)
             }
         };
     }
 
     pub fn set_completed_iso8601(&mut self, s: String) {
-        self.completed = match NaiveDate::parse_from_str(s.as_str(), "%Y-%m-%d") {
+        self.completed = match NaiveDateTime::parse_from_str(s.as_str(), "%Y-%m-%d") {
             Ok(e) => Some(e),
             Err(_) => None,
         };
@@ -133,13 +178,9 @@ impl ToString for Todo {
             Some(e) => format!("{} 📅 {}", s, e.to_string()),
             None => s,
         };
-        s = match self.repeat {
-            Some(e) => format!("{} 🔁 {}", s, format!("{} days", e.num_days())),
+        s = match &self.repeat {
+            Some(e) => format!("{} 🔁 {}", s, e.to_string()),
             None => s,
-        };
-        s = match (self.due, self.repeat, &self.repeat_type) {
-            (Some(_), Some(_), RepeatType::FromCompleted) => format!("{} {}", s, "after completed"),
-            (_, _, _) => s,
         };
         s = match self.completed {
             Some(e) => format!("[x] {} ✅ {}", s, e.to_string()),

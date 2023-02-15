@@ -7,4 +7,5 @@ edition = "2021"
 
 [dependencies]
 chrono = "0"
-duration-str = "0"
+duration-human = "0"
+cron = "0"
