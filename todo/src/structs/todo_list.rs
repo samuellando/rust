@@ -17,9 +17,17 @@ impl TodoList {
         self.items.push(e);
     }
 
+    pub fn remove(&mut self, i: usize) -> Todo {
+        return self.items.remove(i);
+    }
+
     pub fn filter(&self, predicate: for<'a> fn(&'a Todo) -> bool) -> TodoList {
         let tdl = self.clone();
         return tdl.into_iter().filter(predicate).collect();
+    }
+
+    pub fn len(&self) -> usize {
+        self.items.len()
     }
 }
 

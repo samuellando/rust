@@ -120,6 +120,54 @@ fn main() {
                 inp = String::from(inp.trim());
                 tdl[e].remove_tag(inp);
             }
+            ("dep", Some(e)) => {
+                println!("path: ");
+                inp = String::new();
+                io::stdin()
+                    .read_line(&mut inp)
+                    .expect("Failed to read line");
+                let split = inp.trim().split(" ").collect::<Vec<&str>>();
+                let path: Vec<usize> = match split[0].len() {
+                    0 => Vec::new(),
+                    _ => split
+                        .into_iter()
+                        .map(|x| match x.trim().parse() {
+                            Ok(e) => e,
+                            Err(_) => panic!("Invalid path"),
+                        })
+                        .collect(),
+                };
+                println!("Depends on: ");
+                inp = String::new();
+                io::stdin()
+                    .read_line(&mut inp)
+                    .expect("Failed to read line");
+                let n: usize = match inp.trim().parse() {
+                    Ok(e) => e,
+                    Err(_) => continue,
+                };
+                let t = tdl.remove(n);
+                tdl[e].add_dependency(path, t);
+            }
+            ("cdep", Some(e)) => {
+                println!("path: ");
+                inp = String::new();
+                io::stdin()
+                    .read_line(&mut inp)
+                    .expect("Failed to read line");
+                let split = inp.trim().split(" ").collect::<Vec<&str>>();
+                let path: Vec<usize> = match split[0].len() {
+                    0 => Vec::new(),
+                    _ => split
+                        .into_iter()
+                        .map(|x| match x.trim().parse() {
+                            Ok(e) => e,
+                            Err(_) => panic!("Invalid path"),
+                        })
+                        .collect(),
+                };
+                tdl[e].complete_dependency(path);
+            }
             ("q", _) => break,
             (_, _) => continue,
         }

@@ -1,3 +1,4 @@
+use crate::TodoList;
 use chrono::{offset::TimeZone, Duration, Local, LocalResult, NaiveDateTime};
 use core::str::FromStr;
 use core::time::Duration as StdDuration;
@@ -36,8 +37,11 @@ pub struct Todo {
     start: Option<NaiveDateTime>,
     repeat: Option<Repeat>,
     tags: Vec<String>,
-    sub_tasks: Vec<Todo>,
-    dependencies: Vec<Todo>,
+    sub_tasks: TodoList,
+    dependencies: TodoList,
+    // For the next repetion.
+    next_sub_tasks: TodoList,
+    next_dependencies: TodoList,
     duration: Option<Duration>,
 }
 
@@ -50,8 +54,10 @@ impl Todo {
             start: None,
             repeat: None,
             tags: Vec::new(),
-            sub_tasks: Vec::new(),
-            dependencies: Vec::new(),
+            sub_tasks: TodoList::new(),
+            dependencies: TodoList::new(),
+            next_sub_tasks: TodoList::new(),
+            next_dependencies: TodoList::new(),
             duration: None,
         };
     }
@@ -122,20 +128,22 @@ impl Todo {
             return None;
         }
 
+        if self.dependencies.filter(|t| t.completed == None).len() > 0 {
+            return None;
+        }
+
         let mut t = self.clone();
         let dt = Local::now();
         let d = dt.naive_local();
         self.completed = Some(d);
 
-        return match (self.due, &self.repeat) {
-            (_, None) => None,
+        match (self.due, &self.repeat) {
+            (_, None) => return None,
             (Some(due), Some(Repeat::FromDue(d))) => {
                 t.due = Some(due + d.clone());
-                Some(t)
             }
             (_, Some(Repeat::FromDue(dur))) | (_, Some(Repeat::FromCompleted(dur))) => {
                 t.due = Some(d + dur.clone());
-                Some(t)
             }
             (_, Some(Repeat::Every(e))) => {
                 let after = match self.due {
@@ -150,9 +158,46 @@ impl Todo {
                     Some(e) => Some(e.naive_local()),
                     None => None,
                 };
-                Some(t)
             }
         };
+
+        t.dependencies = t.next_dependencies;
+        t.next_dependencies = TodoList::new();
+
+        return Some(t);
+    }
+
+    pub fn add_dependency(&mut self, indexes: Vec<usize>, t: Todo) {
+        let mut parent = self;
+
+        parent.completed = None;
+        for i in indexes {
+            parent = &mut parent.dependencies[i];
+            parent.completed = None;
+        }
+
+        parent.dependencies.add(t);
+    }
+
+    pub fn complete_dependency(&mut self, indexes: Vec<usize>) {
+        let mut parent = self;
+        let mut t: &mut Todo;
+
+        if indexes.len() == 0 {
+            return;
+        }
+
+        t = &mut parent.dependencies[indexes[0]];
+
+        for i in &indexes[1..] {
+            parent = t;
+            t = &mut parent.dependencies[*i];
+        }
+
+        match t.complete() {
+            Some(e) => parent.next_dependencies.add(e),
+            None => return,
+        }
     }
 
     pub fn set_completed_iso8601(&mut self, s: String) {
@@ -203,6 +248,12 @@ impl ToString for Todo {
 
         for t in &self.tags {
             s = format!("{} #{}", s, t);
+        }
+
+        let deps = self.dependencies.clone();
+        for (i, t) in deps.into_iter().enumerate() {
+            let ds = t.to_string().replace("\n", "\n<<");
+            s = format!("{}\n<< {i} {}", s, ds);
         }
 
         return s;
