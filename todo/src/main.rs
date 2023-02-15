@@ -102,6 +102,24 @@ fn main() {
                 inp = String::from(inp.trim());
                 tdl[e].set_duration(inp)
             }
+            ("tag", Some(e)) => {
+                println!("Enter tag: ");
+                inp = String::new();
+                io::stdin()
+                    .read_line(&mut inp)
+                    .expect("Failed to read line");
+                inp = String::from(inp.trim());
+                tdl[e].add_tag(inp);
+            }
+            ("utag", Some(e)) => {
+                println!("Enter tag: ");
+                inp = String::new();
+                io::stdin()
+                    .read_line(&mut inp)
+                    .expect("Failed to read line");
+                inp = String::from(inp.trim());
+                tdl[e].remove_tag(inp);
+            }
             ("q", _) => break,
             (_, _) => continue,
         }

@@ -161,6 +161,20 @@ impl Todo {
             Err(_) => None,
         };
     }
+
+    pub fn add_tag(&mut self, t: String) {
+        self.tags.push(t);
+    }
+
+    pub fn remove_tag(&mut self, t: String) {
+        match self.tags.binary_search(&t) {
+            Ok(i) => {
+                self.tags.remove(i);
+                return;
+            }
+            Err(_) => return,
+        }
+    }
 }
 
 impl ToString for Todo {
@@ -186,6 +200,10 @@ impl ToString for Todo {
             Some(e) => format!("[x] {} ✅ {}", s, e.to_string()),
             None => format!("[ ] {}", s),
         };
+
+        for t in &self.tags {
+            s = format!("{} #{}", s, t);
+        }
 
         return s;
     }
