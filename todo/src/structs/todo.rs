@@ -164,6 +164,17 @@ impl Todo {
         t.dependencies = t.next_dependencies;
         t.next_dependencies = TodoList::new();
 
+        // All subtasks should complete automatically, so that their next itteration is loaded.
+        for i in 0..t.sub_tasks.len() {
+            println!("{}", t.sub_tasks[i].title);
+            match t.sub_tasks[i].complete() {
+                Some(e) => t.next_sub_tasks.add(e),
+                None => continue,
+            };
+        }
+        t.sub_tasks = t.next_sub_tasks;
+        t.next_sub_tasks = TodoList::new();
+
         return Some(t);
     }
 
@@ -196,6 +207,37 @@ impl Todo {
 
         match t.complete() {
             Some(e) => parent.next_dependencies.add(e),
+            None => return,
+        }
+    }
+
+    pub fn add_sub_task(&mut self, indexes: Vec<usize>, t: Todo) {
+        let mut parent = self;
+
+        for i in indexes {
+            parent = &mut parent.sub_tasks[i];
+        }
+
+        parent.sub_tasks.add(t);
+    }
+
+    pub fn complete_sub_task(&mut self, indexes: Vec<usize>) {
+        let mut parent = self;
+        let mut t: &mut Todo;
+
+        if indexes.len() == 0 {
+            return;
+        }
+
+        t = &mut parent.sub_tasks[indexes[0]];
+
+        for i in &indexes[1..] {
+            parent = t;
+            t = &mut parent.sub_tasks[*i];
+        }
+
+        match t.complete() {
+            Some(e) => parent.next_sub_tasks.add(e),
             None => return,
         }
     }
@@ -254,6 +296,12 @@ impl ToString for Todo {
         for (i, t) in deps.into_iter().enumerate() {
             let ds = t.to_string().replace("\n", "\n<<");
             s = format!("{}\n<< {i} {}", s, ds);
+        }
+
+        let subs = self.sub_tasks.clone();
+        for (i, t) in subs.into_iter().enumerate() {
+            let ds = t.to_string().replace("\n", "\n--");
+            s = format!("{}\n-- {i} {}", s, ds);
         }
 
         return s;

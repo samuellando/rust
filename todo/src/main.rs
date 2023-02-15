@@ -168,6 +168,54 @@ fn main() {
                 };
                 tdl[e].complete_dependency(path);
             }
+            ("sub", Some(e)) => {
+                println!("path: ");
+                inp = String::new();
+                io::stdin()
+                    .read_line(&mut inp)
+                    .expect("Failed to read line");
+                let split = inp.trim().split(" ").collect::<Vec<&str>>();
+                let path: Vec<usize> = match split[0].len() {
+                    0 => Vec::new(),
+                    _ => split
+                        .into_iter()
+                        .map(|x| match x.trim().parse() {
+                            Ok(e) => e,
+                            Err(_) => panic!("Invalid path"),
+                        })
+                        .collect(),
+                };
+                println!("sub task: ");
+                inp = String::new();
+                io::stdin()
+                    .read_line(&mut inp)
+                    .expect("Failed to read line");
+                let n: usize = match inp.trim().parse() {
+                    Ok(e) => e,
+                    Err(_) => continue,
+                };
+                let t = tdl.remove(n);
+                tdl[e].add_sub_task(path, t);
+            }
+            ("csub", Some(e)) => {
+                println!("path: ");
+                inp = String::new();
+                io::stdin()
+                    .read_line(&mut inp)
+                    .expect("Failed to read line");
+                let split = inp.trim().split(" ").collect::<Vec<&str>>();
+                let path: Vec<usize> = match split[0].len() {
+                    0 => Vec::new(),
+                    _ => split
+                        .into_iter()
+                        .map(|x| match x.trim().parse() {
+                            Ok(e) => e,
+                            Err(_) => panic!("Invalid path"),
+                        })
+                        .collect(),
+                };
+                tdl[e].complete_sub_task(path);
+            }
             ("q", _) => break,
             (_, _) => continue,
         }
