@@ -216,6 +216,9 @@ fn main() {
                 };
                 tdl[e].complete_sub_task(path);
             }
+            ("json", _) => {
+                println!("{}", tdl.to_json())
+            }
             ("q", _) => break,
             (_, _) => continue,
         }

@@ -1,12 +1,131 @@
 use crate::TodoList;
-use chrono::{offset::TimeZone, Duration, Local, LocalResult, NaiveDateTime};
+use chrono::{
+    offset::TimeZone, DateTime, Duration as ChronoDuration, Local, LocalResult,
+    NaiveDateTime as ChronoNaiveDateTime, OutOfRangeError,
+};
 use core::str::FromStr;
 use core::time::Duration as StdDuration;
-use cron::Schedule;
+use cron::Schedule as CronSchedule;
 use duration_human::DurationHuman;
+use serde::{Serialize, Serializer};
+use serde_json;
 use std::cmp::max;
+use std::ops::Add;
 
 #[derive(Clone)]
+struct Duration(ChronoDuration);
+
+impl Duration {
+    fn num_milliseconds(&self) -> i64 {
+        self.0.num_milliseconds()
+    }
+
+    fn num_minutes(&self) -> i64 {
+        self.0.num_milliseconds()
+    }
+
+    fn from_std(s: StdDuration) -> Result<Duration, OutOfRangeError> {
+        match ChronoDuration::from_std(s) {
+            Ok(e) => Ok(Duration(e)),
+            Err(e) => Err(e),
+        }
+    }
+
+    fn to_std(&self) -> Result<StdDuration, OutOfRangeError> {
+        self.0.to_std()
+    }
+}
+
+impl Add<Duration> for NaiveDateTime {
+    type Output = NaiveDateTime;
+
+    fn add(self, rhs: Duration) -> NaiveDateTime {
+        NaiveDateTime(self.0.add(rhs.0))
+    }
+}
+
+impl Serialize for Duration {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_i64(self.num_milliseconds())
+    }
+}
+
+#[derive(Clone)]
+struct Schedule(CronSchedule);
+
+impl Schedule {
+    fn after<Z: TimeZone>(&self, d: &DateTime<Z>) -> cron::ScheduleIterator<'_, Z> {
+        self.0.after(d)
+    }
+}
+
+impl ToString for Schedule {
+    fn to_string(&self) -> String {
+        self.0.to_string()
+    }
+}
+
+impl FromStr for Schedule {
+    type Err = cron::error::Error;
+
+    fn from_str(s: &str) -> Result<Schedule, Self::Err> {
+        match CronSchedule::from_str(s) {
+            Ok(e) => Ok(Schedule(e)),
+            Err(e) => Err(e),
+        }
+    }
+}
+
+impl Serialize for Schedule {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(self.to_string().as_str())
+    }
+}
+
+#[derive(Clone)]
+struct NaiveDateTime(ChronoNaiveDateTime);
+
+impl NaiveDateTime {
+    fn parse_from_str(s: &str, fmt: &str) -> chrono::ParseResult<NaiveDateTime> {
+        match ChronoNaiveDateTime::parse_from_str(s, fmt) {
+            Ok(e) => Ok(NaiveDateTime(e)),
+            Err(e) => Err(e),
+        }
+    }
+}
+
+impl ToString for NaiveDateTime {
+    fn to_string(&self) -> String {
+        self.0.to_string()
+    }
+}
+
+impl PartialEq<NaiveDateTime> for NaiveDateTime {
+    fn eq(&self, other: &NaiveDateTime) -> bool {
+        self.0.eq(&other.0)
+    }
+
+    fn ne(&self, other: &NaiveDateTime) -> bool {
+        self.0.ne(&other.0)
+    }
+}
+
+impl Serialize for NaiveDateTime {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(self.to_string().as_str())
+    }
+}
+
+#[derive(Clone, Serialize)]
 enum Repeat {
     FromCompleted(Duration),
     FromDue(Duration),
@@ -29,7 +148,7 @@ impl ToString for Repeat {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct Todo {
     completed: Option<NaiveDateTime>,
     title: String,
@@ -134,20 +253,20 @@ impl Todo {
 
         let mut t = self.clone();
         let dt = Local::now();
-        let d = dt.naive_local();
-        self.completed = Some(d);
+        let d = NaiveDateTime(dt.naive_local());
+        self.completed = Some(d.clone());
 
-        match (self.due, &self.repeat) {
+        match (&self.due, &self.repeat) {
             (_, None) => return None,
             (Some(due), Some(Repeat::FromDue(d))) => {
-                t.due = Some(due + d.clone());
+                t.due = Some(due.clone() + d.clone());
             }
             (_, Some(Repeat::FromDue(dur))) | (_, Some(Repeat::FromCompleted(dur))) => {
                 t.due = Some(d + dur.clone());
             }
             (_, Some(Repeat::Every(e))) => {
-                let after = match self.due {
-                    Some(d) => match Local.from_local_datetime(&d) {
+                let after = match &self.due {
+                    Some(d) => match Local.from_local_datetime(&d.0) {
                         LocalResult::None => dt,
                         LocalResult::Single(e) => max(e, dt),
                         LocalResult::Ambiguous(_, _) => dt,
@@ -155,7 +274,7 @@ impl Todo {
                     None => dt,
                 };
                 t.due = match e.after(&after).next() {
-                    Some(e) => Some(e.naive_local()),
+                    Some(e) => Some(NaiveDateTime(e.naive_local())),
                     None => None,
                 };
             }
@@ -262,20 +381,27 @@ impl Todo {
             Err(_) => return,
         }
     }
+
+    pub fn to_json(&self) -> String {
+        match serde_json::to_string_pretty(self) {
+            Ok(e) => e,
+            Err(_) => panic!("Couldn't convert to json."),
+        }
+    }
 }
 
 impl ToString for Todo {
     fn to_string(&self) -> String {
         let mut s = format!("{}", self.title);
-        s = match self.duration {
+        s = match &self.duration {
             Some(e) => format!("{} 🕒 {}", s, format!("{} minutes", e.num_minutes())),
             None => s,
         };
-        s = match self.start {
+        s = match &self.start {
             Some(e) => format!("{} ✈️ {}", s, e.to_string()),
             None => s,
         };
-        s = match self.due {
+        s = match &self.due {
             Some(e) => format!("{} 📅 {}", s, e.to_string()),
             None => s,
         };
@@ -283,7 +409,7 @@ impl ToString for Todo {
             Some(e) => format!("{} 🔁 {}", s, e.to_string()),
             None => s,
         };
-        s = match self.completed {
+        s = match &self.completed {
             Some(e) => format!("[x] {} ✅ {}", s, e.to_string()),
             None => format!("[ ] {}", s),
         };

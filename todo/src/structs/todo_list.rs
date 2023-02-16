@@ -1,8 +1,9 @@
 use crate::Todo;
+use serde::Serialize;
 use std::ops::Index;
 use std::ops::IndexMut;
 
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct TodoList {
     items: Vec<Todo>,
 }
@@ -28,6 +29,13 @@ impl TodoList {
 
     pub fn len(&self) -> usize {
         self.items.len()
+    }
+
+    pub fn to_json(&self) -> String {
+        match serde_json::to_string_pretty(self) {
+            Ok(e) => e,
+            Err(_) => panic!("Couldn't convert to json."),
+        }
     }
 }
 
