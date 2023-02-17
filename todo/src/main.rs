@@ -15,10 +15,7 @@ fn main() {
 
     let mut save = String::from("");
     loop {
-        let tdlc = tdl.clone();
-        for (i, e) in tdlc.into_iter().enumerate() {
-            println!("{i} {}", e.to_string());
-        }
+        println!("{}", tdl.to_string());
 
         let mut inp = String::new();
         io::stdin()

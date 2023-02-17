@@ -44,6 +44,25 @@ impl TodoList {
             Err(e) => panic!("Couldn't convert from json. {}", e),
         }
     }
+
+    pub fn to_markdown(&self) -> String {
+        let mut s = String::new();
+        let tdl = self.clone();
+        for (i, todo) in tdl.into_iter().enumerate() {
+            if i > 0 {
+                s.push_str("\n");
+            }
+            s.push_str(todo.to_markdown().as_str());
+        }
+
+        return s;
+    }
+}
+
+impl ToString for TodoList {
+    fn to_string(&self) -> String {
+        self.to_markdown()
+    }
 }
 
 impl IntoIterator for TodoList {

@@ -485,10 +485,8 @@ impl Todo {
             Err(_) => panic!("Couldn't convert from json."),
         }
     }
-}
 
-impl ToString for Todo {
-    fn to_string(&self) -> String {
+    pub fn to_markdown(&self) -> String {
         let mut s = format!("{}", self.title);
         s = match &self.duration {
             Some(e) => format!("{} 🕒 {}", s, format!("{} minutes", e.num_minutes())),
@@ -507,8 +505,8 @@ impl ToString for Todo {
             None => s,
         };
         s = match &self.completed {
-            Some(e) => format!("[x] {} ✅ {}", s, e.to_string()),
-            None => format!("[ ] {}", s),
+            Some(e) => format!("- [x] {} ✅ {}", s, e.to_string()),
+            None => format!("- [ ] {}", s),
         };
 
         for t in &self.tags {
@@ -516,17 +514,29 @@ impl ToString for Todo {
         }
 
         let deps = self.dependencies.clone();
-        for (i, t) in deps.into_iter().enumerate() {
-            let ds = t.to_string().replace("\n", "\n<<");
-            s = format!("{}\n<< {i} {}", s, ds);
+        if deps.len() > 0 {
+            s = format!("{}\n  - Dependencies:", s);
+        }
+        for t in deps {
+            let ds = t.to_string().replace("\n", "\n    ");
+            s = format!("{}\n    {}", s, ds);
         }
 
         let subs = self.sub_tasks.clone();
-        for (i, t) in subs.into_iter().enumerate() {
-            let ds = t.to_string().replace("\n", "\n--");
-            s = format!("{}\n-- {i} {}", s, ds);
+        if subs.len() > 0 {
+            s = format!("{}\n  - Sub Tasks:", s);
+        }
+        for t in subs.into_iter() {
+            let ds = t.to_string().replace("\n", "\n    ");
+            s = format!("{}\n    {}", s, ds);
         }
 
         return s;
+    }
+}
+
+impl ToString for Todo {
+    fn to_string(&self) -> String {
+        return self.to_markdown();
     }
 }
