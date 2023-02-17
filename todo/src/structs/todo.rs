@@ -162,7 +162,7 @@ impl NaiveDateTime {
 
 impl ToString for NaiveDateTime {
     fn to_string(&self) -> String {
-        self.0.to_string()
+        self.0.format("%Y-%m-%d %H:%M:%S").to_string()
     }
 }
 
@@ -452,9 +452,13 @@ impl Todo {
     }
 
     pub fn set_completed_iso8601(&mut self, s: String) {
-        self.completed = match NaiveDateTime::parse_from_str(s.as_str(), "%Y-%m-%d") {
+        let fmt = "%Y-%m-%d %H:%M:%S";
+        self.completed = match NaiveDateTime::parse_from_str(s.as_str(), fmt) {
             Ok(e) => Some(e),
-            Err(_) => None,
+            Err(_) => match NaiveDateTime::parse_from_str(&format!("{} 11:59:59", s), fmt) {
+                Ok(e) => Some(e),
+                Err(_) => None,
+            },
         };
     }
 
@@ -532,6 +536,84 @@ impl Todo {
         }
 
         return s;
+    }
+
+    pub fn from_markdown(s: &str) -> Todo {
+        let s = String::from(s);
+
+        // Start by parsing the sub lists.
+        let mut lists = Vec::from(["\n  - Dependencies:", "\n  - Sub Tasks:"]);
+        lists.sort_by_key(|x| s.find(x));
+        let found: Vec<&str> = lists.into_iter().filter(|x| s.find(*x) != None).collect();
+
+        let mut parts: Vec<&str> = s.split("\n  - Dependencies:\n").collect();
+        if parts.len() == 1 {
+            parts = s.split("\n  - Sub Tasks:").collect();
+        } else {
+            let next_parts: Vec<&str> = parts[1].split("\n  - Sub Tasks:\n").collect();
+            parts[1] = next_parts[0];
+            if next_parts.len() > 1 {
+                parts.push(next_parts[1]);
+            }
+        }
+
+        let mut dependencies = TodoList::new();
+        let mut sub_tasks = TodoList::new();
+
+        for i in 1..parts.len() {
+            match found[i - 1] {
+                "\n  - Dependencies:" => {
+                    dependencies = TodoList::from_markdown(&parts[i].replace("\n    ", "\n")[4..])
+                }
+                "\n  - Sub Tasks:" => {
+                    sub_tasks = TodoList::from_markdown(&parts[i].replace("\n    ", "\n")[4..])
+                }
+                _ => panic!("Unreachable"),
+            }
+        }
+
+        // Since the airplane emoji is 2 characters and we need singles.
+        let s = parts[0].replace("✈️", "✝");
+
+        let mut symbols = Vec::from(['🕒', '✝', '📅', '🔁', '✅']);
+
+        symbols.sort_by_cached_key(|x| s.find(*x));
+
+        let task_parts: Vec<String> = s
+            .split(|c| match c {
+                e if symbols.contains(&e) => true,
+                _ => false,
+            })
+            .map(|x| String::from(x.trim()))
+            .collect();
+
+        let mut title = task_parts[0].replace("- [ ]", "");
+        title = title.replace("- [x]", "");
+        title = String::from(title.trim());
+
+        let mut task = Todo::from_title(title);
+
+        let syms = symbols.clone();
+        let found = syms.into_iter().filter(|x| s.find(*x) != None);
+        for (i, sym) in found.into_iter().enumerate() {
+            match sym {
+                '🕒' => task.set_duration(task_parts[i + 1].replace("minutes", "min")),
+                '✝' => task.set_start_iso8601(task_parts[i + 1].clone()),
+                '📅' => task.set_due_iso8601(task_parts[i + 1].clone()),
+                '🔁' => task.set_repeat(
+                    task_parts[i + 1]
+                        .replace("after ", "")
+                        .replace("every ", ""),
+                ),
+                '✅' => task.set_completed_iso8601(task_parts[i + 1].clone()),
+                _ => panic!("Unreachable"),
+            }
+        }
+
+        task.dependencies = dependencies;
+        task.sub_tasks = sub_tasks;
+
+        return task;
     }
 }
 

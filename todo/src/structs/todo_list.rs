@@ -57,6 +57,21 @@ impl TodoList {
 
         return s;
     }
+
+    pub fn from_markdown(s: &str) -> Self {
+        let mut tasks: Vec<&str> = s.split("\n- [").collect();
+        tasks[0] = &tasks[0][3..];
+
+        let mut tdl = TodoList::new();
+
+        for task in tasks {
+            let mut s = task.replace("x] ", "");
+            s = s.replace(" ] ", "");
+            tdl.add(Todo::from_markdown(s.as_str()));
+        }
+
+        return tdl;
+    }
 }
 
 impl ToString for TodoList {
