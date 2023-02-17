@@ -1,7 +1,10 @@
 use crate::Todo;
 use serde::{Deserialize, Serialize};
+use std::fs::File;
+use std::io::prelude::*;
 use std::ops::Index;
 use std::ops::IndexMut;
+use std::path::Path;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct TodoList {
@@ -71,6 +74,74 @@ impl TodoList {
         }
 
         return tdl;
+    }
+
+    pub fn from_json_file(s: &str) -> TodoList {
+        let path = Path::new(s);
+        let display = path.display();
+
+        // Open the path in read-only mode, returns `io::Result<File>`
+        let mut file = match File::open(&path) {
+            Err(why) => panic!("couldn't open {}: {}", display, why),
+            Ok(file) => file,
+        };
+
+        // Read the file contents into a string, returns `io::Result<usize>`
+        let mut s = String::new();
+        match file.read_to_string(&mut s) {
+            Err(why) => panic!("couldn't read {}: {}", display, why),
+            Ok(_) => return TodoList::from_json(s.as_str()),
+        }
+    }
+
+    pub fn to_json_file(&self, s: &str) {
+        let path = Path::new(s);
+        let display = path.display();
+
+        // Open the path in read-only mode, returns `io::Result<File>`
+        let mut file = match File::create(&path) {
+            Err(why) => panic!("couldn't open {}: {}", display, why),
+            Ok(file) => file,
+        };
+        // Write the `LOREM_IPSUM` string to `file`, returns `io::Result<()>`
+        match file.write_all(self.to_json().as_bytes()) {
+            Err(why) => panic!("couldn't write to {}: {}", display, why),
+            Ok(_) => return,
+        }
+    }
+
+    pub fn from_markdown_file(s: &str) -> TodoList {
+        let path = Path::new(s);
+        let display = path.display();
+
+        // Open the path in read-only mode, returns `io::Result<File>`
+        let mut file = match File::open(&path) {
+            Err(why) => panic!("couldn't open {}: {}", display, why),
+            Ok(file) => file,
+        };
+
+        // Read the file contents into a string, returns `io::Result<usize>`
+        let mut s = String::new();
+        match file.read_to_string(&mut s) {
+            Err(why) => panic!("couldn't read {}: {}", display, why),
+            Ok(_) => return TodoList::from_markdown(s.as_str()),
+        }
+    }
+
+    pub fn to_markdown_file(&self, s: &str) {
+        let path = Path::new(s);
+        let display = path.display();
+
+        // Open the path in read-only mode, returns `io::Result<File>`
+        let mut file = match File::create(&path) {
+            Err(why) => panic!("couldn't open {}: {}", display, why),
+            Ok(file) => file,
+        };
+        // Write the `LOREM_IPSUM` string to `file`, returns `io::Result<()>`
+        match file.write_all(self.to_markdown().as_bytes()) {
+            Err(why) => panic!("couldn't write to {}: {}", display, why),
+            Ok(_) => return,
+        }
     }
 }
 

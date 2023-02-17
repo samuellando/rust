@@ -5,50 +5,10 @@ use crate::structs::TodoList;
 use std::io;
 
 fn main() {
-    let l = [
-        Todo::from_title(String::from("Sunday cleaning")),
-        Todo::from_title(String::from("Clean apartment")),
-        Todo::from_title(String::from("Wash Car")),
-        Todo::from_title(String::from("Laundry")),
-        Todo::from_title(String::from("Groceries")),
-        Todo::from_title(String::from("Seats")),
-        Todo::from_title(String::from("outside")),
-        Todo::from_title(String::from("tires")),
-        Todo::from_title(String::from("oil")),
-        Todo::from_title(String::from("Homework")),
-    ];
+    let mut tdl = TodoList::new();
 
-    let mut tdl = TodoList::from_iter(l);
-
-    let t = tdl.remove(1);
-    tdl[0].add_dependency(Vec::new(), t);
-    let t = tdl.remove(1);
-    tdl[0].add_dependency(Vec::new(), t);
-    let t = tdl.remove(1);
-    tdl[0].add_dependency(Vec::new(), t);
-    let t = tdl.remove(1);
-    tdl[0].add_dependency(Vec::new(), t);
-    let t = tdl.remove(1);
-    tdl[0].add_dependency(Vec::from([1]), t);
-    let t = tdl.remove(1);
-    tdl[0].add_dependency(Vec::from([1]), t);
-    let t = tdl.remove(1);
-    tdl[0].add_dependency(Vec::from([1]), t);
-    let t = tdl.remove(1);
-    tdl[0].add_dependency(Vec::from([1]), t);
-
-    tdl[0].set_repeat(String::from("5 days"));
-    tdl[0].set_duration(String::from("1 days"));
-    tdl[0].set_due_iso8601(String::from("2023-01-01"));
-    tdl[0].set_start_iso8601(String::from("2023-01-02"));
-    tdl[0].set_completed_iso8601(String::from("2023-01-03"));
-
-    let mut save = String::from("");
     loop {
-        println!(
-            "{}",
-            TodoList::from_markdown(tdl.to_markdown().as_str()).to_string()
-        );
+        println!("{}", tdl.to_string());
 
         let mut inp = String::new();
         io::stdin()
@@ -247,11 +207,13 @@ fn main() {
                 };
                 tdl[e].complete_sub_task(path);
             }
-            ("save", _) => {
-                save = tdl.to_json();
-            }
+            ("save", _) => tdl.to_json_file("test.json"),
             ("load", _) => {
-                tdl = TodoList::from_json(save.as_str());
+                tdl = TodoList::from_json_file("test.json");
+            }
+            ("savemd", _) => tdl.to_markdown_file("test.md"),
+            ("loadmd", _) => {
+                tdl = TodoList::from_markdown_file("test.md");
             }
             ("q", _) => break,
             (_, _) => continue,
