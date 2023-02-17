@@ -7,7 +7,7 @@ use core::str::FromStr;
 use core::time::Duration as StdDuration;
 use cron::Schedule as CronSchedule;
 use duration_human::DurationHuman;
-use serde::{Serialize, Serializer};
+use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json;
 use std::cmp::max;
 use std::ops::Add;
@@ -18,6 +18,10 @@ struct Duration(ChronoDuration);
 impl Duration {
     fn num_milliseconds(&self) -> i64 {
         self.0.num_milliseconds()
+    }
+
+    fn milliseconds(v: i64) -> Self {
+        Duration(ChronoDuration::milliseconds(v))
     }
 
     fn num_minutes(&self) -> i64 {
@@ -53,6 +57,33 @@ impl Serialize for Duration {
     }
 }
 
+struct DurationVisitor;
+
+impl<'de> Visitor<'de> for DurationVisitor {
+    type Value = Duration;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(formatter, "Duration in milliseconds")
+    }
+
+    fn visit_i64<E: serde::de::Error>(self, v: i64) -> Result<Self::Value, E> {
+        Ok(Duration::milliseconds(v))
+    }
+
+    fn visit_u64<E: serde::de::Error>(self, v: u64) -> Result<Self::Value, E> {
+        Ok(Duration::milliseconds(v as i64))
+    }
+}
+
+impl<'de> Deserialize<'de> for Duration {
+    fn deserialize<D>(deserializer: D) -> Result<Duration, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_i64(DurationVisitor)
+    }
+}
+
 #[derive(Clone)]
 struct Schedule(CronSchedule);
 
@@ -85,6 +116,35 @@ impl Serialize for Schedule {
         S: Serializer,
     {
         serializer.serialize_str(self.to_string().as_str())
+    }
+}
+
+struct ScheduleVisitor;
+
+impl<'de> Visitor<'de> for ScheduleVisitor {
+    type Value = Schedule;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(formatter, "A cron expression")
+    }
+
+    fn visit_str<E: serde::de::Error>(self, v: &str) -> Result<Self::Value, E> {
+        match Schedule::from_str(v) {
+            Ok(e) => Ok(e),
+            Err(_) => Err(serde::de::Error::custom(format!(
+                "Could not parse cron expression {}",
+                v
+            ))),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for Schedule {
+    fn deserialize<D>(deserializer: D) -> Result<Schedule, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_str(ScheduleVisitor)
     }
 }
 
@@ -125,7 +185,38 @@ impl Serialize for NaiveDateTime {
     }
 }
 
-#[derive(Clone, Serialize)]
+struct NaiveDateTimeVisitor;
+
+impl<'de> Visitor<'de> for NaiveDateTimeVisitor {
+    type Value = NaiveDateTime;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let fmt = "%Y-%m-%d %H:%M:%S";
+        write!(formatter, "Datetime {}", fmt)
+    }
+
+    fn visit_str<E: serde::de::Error>(self, s: &str) -> Result<Self::Value, E> {
+        let fmt = "%Y-%m-%d %H:%M:%S";
+        match NaiveDateTime::parse_from_str(s, fmt) {
+            Ok(e) => Ok(e),
+            Err(_) => Err(serde::de::Error::custom(format!(
+                "Could not parse datetime {}",
+                s
+            ))),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for NaiveDateTime {
+    fn deserialize<D>(deserializer: D) -> Result<NaiveDateTime, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_str(NaiveDateTimeVisitor)
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
 enum Repeat {
     FromCompleted(Duration),
     FromDue(Duration),
@@ -148,7 +239,7 @@ impl ToString for Repeat {
     }
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Todo {
     completed: Option<NaiveDateTime>,
     title: String,
@@ -285,7 +376,6 @@ impl Todo {
 
         // All subtasks should complete automatically, so that their next itteration is loaded.
         for i in 0..t.sub_tasks.len() {
-            println!("{}", t.sub_tasks[i].title);
             match t.sub_tasks[i].complete() {
                 Some(e) => t.next_sub_tasks.add(e),
                 None => continue,
@@ -386,6 +476,13 @@ impl Todo {
         match serde_json::to_string_pretty(self) {
             Ok(e) => e,
             Err(_) => panic!("Couldn't convert to json."),
+        }
+    }
+
+    pub fn from_json(s: &str) -> Self {
+        match serde_json::from_str(s) {
+            Ok(e) => e,
+            Err(_) => panic!("Couldn't convert from json."),
         }
     }
 }

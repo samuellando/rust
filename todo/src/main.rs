@@ -13,6 +13,7 @@ fn main() {
 
     let mut tdl = TodoList::from_iter(l);
 
+    let mut save = String::from("");
     loop {
         let tdlc = tdl.clone();
         for (i, e) in tdlc.into_iter().enumerate() {
@@ -216,8 +217,11 @@ fn main() {
                 };
                 tdl[e].complete_sub_task(path);
             }
-            ("json", _) => {
-                println!("{}", tdl.to_json())
+            ("save", _) => {
+                save = tdl.to_json();
+            }
+            ("load", _) => {
+                tdl = TodoList::from_json(save.as_str());
             }
             ("q", _) => break,
             (_, _) => continue,
