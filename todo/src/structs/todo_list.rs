@@ -76,8 +76,8 @@ impl TodoList {
         return tdl;
     }
 
-    pub fn from_json_file(s: &str) -> TodoList {
-        let path = Path::new(s);
+    fn _from_file(file_name: &str, f: fn(&str) -> Self) -> Self {
+        let path = Path::new(file_name);
         let display = path.display();
 
         // Open the path in read-only mode, returns `io::Result<File>`
@@ -90,58 +90,40 @@ impl TodoList {
         let mut s = String::new();
         match file.read_to_string(&mut s) {
             Err(why) => panic!("couldn't read {}: {}", display, why),
-            Ok(_) => return TodoList::from_json(s.as_str()),
+            Ok(_) => return f(s.as_str()),
+        }
+    }
+
+    pub fn from_json_file(s: &str) -> Self {
+        TodoList::_from_file(s, TodoList::from_json)
+    }
+
+    pub fn from_markdown_file(s: &str) -> Self {
+        TodoList::_from_file(s, TodoList::from_markdown)
+    }
+
+    fn _to_file<'a>(file_name: &str, s: String) {
+        let path = Path::new(file_name);
+        let display = path.display();
+
+        // Open the path in read-only mode, returns `io::Result<File>`
+        let mut file = match File::create(&path) {
+            Err(why) => panic!("couldn't open {}: {}", display, why),
+            Ok(file) => file,
+        };
+        // Write the `LOREM_IPSUM` string to `file`, returns `io::Result<()>`
+        match file.write_all(s.as_bytes()) {
+            Err(why) => panic!("couldn't write to {}: {}", display, why),
+            Ok(_) => return,
         }
     }
 
     pub fn to_json_file(&self, s: &str) {
-        let path = Path::new(s);
-        let display = path.display();
-
-        // Open the path in read-only mode, returns `io::Result<File>`
-        let mut file = match File::create(&path) {
-            Err(why) => panic!("couldn't open {}: {}", display, why),
-            Ok(file) => file,
-        };
-        // Write the `LOREM_IPSUM` string to `file`, returns `io::Result<()>`
-        match file.write_all(self.to_json().as_bytes()) {
-            Err(why) => panic!("couldn't write to {}: {}", display, why),
-            Ok(_) => return,
-        }
-    }
-
-    pub fn from_markdown_file(s: &str) -> TodoList {
-        let path = Path::new(s);
-        let display = path.display();
-
-        // Open the path in read-only mode, returns `io::Result<File>`
-        let mut file = match File::open(&path) {
-            Err(why) => panic!("couldn't open {}: {}", display, why),
-            Ok(file) => file,
-        };
-
-        // Read the file contents into a string, returns `io::Result<usize>`
-        let mut s = String::new();
-        match file.read_to_string(&mut s) {
-            Err(why) => panic!("couldn't read {}: {}", display, why),
-            Ok(_) => return TodoList::from_markdown(s.as_str()),
-        }
+        TodoList::_to_file(s, self.to_json())
     }
 
     pub fn to_markdown_file(&self, s: &str) {
-        let path = Path::new(s);
-        let display = path.display();
-
-        // Open the path in read-only mode, returns `io::Result<File>`
-        let mut file = match File::create(&path) {
-            Err(why) => panic!("couldn't open {}: {}", display, why),
-            Ok(file) => file,
-        };
-        // Write the `LOREM_IPSUM` string to `file`, returns `io::Result<()>`
-        match file.write_all(self.to_markdown().as_bytes()) {
-            Err(why) => panic!("couldn't write to {}: {}", display, why),
-            Ok(_) => return,
-        }
+        TodoList::_to_file(s, self.to_markdown())
     }
 }
 
@@ -162,10 +144,9 @@ impl IntoIterator for TodoList {
 
 impl FromIterator<Todo> for TodoList {
     fn from_iter<I: IntoIterator<Item = Todo>>(l: I) -> Self {
-        let iter = l.into_iter();
         let mut tdl = TodoList::new();
 
-        for e in iter {
+        for e in l.into_iter() {
             tdl.add(e);
         }
         return tdl;
