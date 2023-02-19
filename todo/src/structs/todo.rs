@@ -1,220 +1,13 @@
+use crate::structs::Duration;
+use crate::structs::NaiveDateTime;
+use crate::structs::Schedule;
 use crate::TodoList;
-use chrono::{
-    offset::TimeZone, DateTime, Duration as ChronoDuration, Local, LocalResult,
-    NaiveDateTime as ChronoNaiveDateTime, OutOfRangeError,
-};
-use core::str::FromStr;
+use chrono::{offset::TimeZone, Local, LocalResult};
 use core::time::Duration as StdDuration;
-use cron::Schedule as CronSchedule;
 use duration_human::DurationHuman;
-use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
-use serde_json;
+use serde::{Deserialize, Serialize};
 use std::cmp::max;
-use std::ops::Add;
-
-#[derive(Clone)]
-struct Duration(ChronoDuration);
-
-impl Duration {
-    fn num_milliseconds(&self) -> i64 {
-        self.0.num_milliseconds()
-    }
-
-    fn milliseconds(v: i64) -> Self {
-        Duration(ChronoDuration::milliseconds(v))
-    }
-
-    fn num_minutes(&self) -> i64 {
-        self.0.num_milliseconds()
-    }
-
-    fn from_std(s: StdDuration) -> Result<Duration, OutOfRangeError> {
-        match ChronoDuration::from_std(s) {
-            Ok(e) => Ok(Duration(e)),
-            Err(e) => Err(e),
-        }
-    }
-
-    fn to_std(&self) -> Result<StdDuration, OutOfRangeError> {
-        self.0.to_std()
-    }
-}
-
-impl Add<Duration> for NaiveDateTime {
-    type Output = NaiveDateTime;
-
-    fn add(self, rhs: Duration) -> NaiveDateTime {
-        NaiveDateTime(self.0.add(rhs.0))
-    }
-}
-
-impl Serialize for Duration {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_i64(self.num_milliseconds())
-    }
-}
-
-struct DurationVisitor;
-
-impl<'de> Visitor<'de> for DurationVisitor {
-    type Value = Duration;
-
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(formatter, "Duration in milliseconds")
-    }
-
-    fn visit_i64<E: serde::de::Error>(self, v: i64) -> Result<Self::Value, E> {
-        Ok(Duration::milliseconds(v))
-    }
-
-    fn visit_u64<E: serde::de::Error>(self, v: u64) -> Result<Self::Value, E> {
-        Ok(Duration::milliseconds(v as i64))
-    }
-}
-
-impl<'de> Deserialize<'de> for Duration {
-    fn deserialize<D>(deserializer: D) -> Result<Duration, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        deserializer.deserialize_i64(DurationVisitor)
-    }
-}
-
-#[derive(Clone)]
-struct Schedule(CronSchedule);
-
-impl Schedule {
-    fn after<Z: TimeZone>(&self, d: &DateTime<Z>) -> cron::ScheduleIterator<'_, Z> {
-        self.0.after(d)
-    }
-}
-
-impl ToString for Schedule {
-    fn to_string(&self) -> String {
-        self.0.to_string()
-    }
-}
-
-impl FromStr for Schedule {
-    type Err = cron::error::Error;
-
-    fn from_str(s: &str) -> Result<Schedule, Self::Err> {
-        match CronSchedule::from_str(s) {
-            Ok(e) => Ok(Schedule(e)),
-            Err(e) => Err(e),
-        }
-    }
-}
-
-impl Serialize for Schedule {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(self.to_string().as_str())
-    }
-}
-
-struct ScheduleVisitor;
-
-impl<'de> Visitor<'de> for ScheduleVisitor {
-    type Value = Schedule;
-
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(formatter, "A cron expression")
-    }
-
-    fn visit_str<E: serde::de::Error>(self, v: &str) -> Result<Self::Value, E> {
-        match Schedule::from_str(v) {
-            Ok(e) => Ok(e),
-            Err(_) => Err(serde::de::Error::custom(format!(
-                "Could not parse cron expression {}",
-                v
-            ))),
-        }
-    }
-}
-
-impl<'de> Deserialize<'de> for Schedule {
-    fn deserialize<D>(deserializer: D) -> Result<Schedule, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        deserializer.deserialize_str(ScheduleVisitor)
-    }
-}
-
-#[derive(Clone)]
-struct NaiveDateTime(ChronoNaiveDateTime);
-
-impl NaiveDateTime {
-    fn parse_from_str(s: &str, fmt: &str) -> chrono::ParseResult<NaiveDateTime> {
-        match ChronoNaiveDateTime::parse_from_str(s, fmt) {
-            Ok(e) => Ok(NaiveDateTime(e)),
-            Err(e) => Err(e),
-        }
-    }
-}
-
-impl ToString for NaiveDateTime {
-    fn to_string(&self) -> String {
-        self.0.format("%Y-%m-%d %H:%M:%S").to_string()
-    }
-}
-
-impl PartialEq<NaiveDateTime> for NaiveDateTime {
-    fn eq(&self, other: &NaiveDateTime) -> bool {
-        self.0.eq(&other.0)
-    }
-
-    fn ne(&self, other: &NaiveDateTime) -> bool {
-        self.0.ne(&other.0)
-    }
-}
-
-impl Serialize for NaiveDateTime {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(self.to_string().as_str())
-    }
-}
-
-struct NaiveDateTimeVisitor;
-
-impl<'de> Visitor<'de> for NaiveDateTimeVisitor {
-    type Value = NaiveDateTime;
-
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let fmt = "%Y-%m-%d %H:%M:%S";
-        write!(formatter, "Datetime {}", fmt)
-    }
-
-    fn visit_str<E: serde::de::Error>(self, s: &str) -> Result<Self::Value, E> {
-        let fmt = "%Y-%m-%d %H:%M:%S";
-        match NaiveDateTime::parse_from_str(s, fmt) {
-            Ok(e) => Ok(e),
-            Err(_) => Err(serde::de::Error::custom(format!(
-                "Could not parse datetime {}",
-                s
-            ))),
-        }
-    }
-}
-
-impl<'de> Deserialize<'de> for NaiveDateTime {
-    fn deserialize<D>(deserializer: D) -> Result<NaiveDateTime, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        deserializer.deserialize_str(NaiveDateTimeVisitor)
-    }
-}
+use std::str::FromStr;
 
 #[derive(Clone, Serialize, Deserialize)]
 enum Repeat {
@@ -249,9 +42,6 @@ pub struct Todo {
     tags: Vec<String>,
     sub_tasks: TodoList,
     dependencies: TodoList,
-    // For the next repetion.
-    next_sub_tasks: TodoList,
-    next_dependencies: TodoList,
     duration: Option<Duration>,
 }
 
@@ -266,8 +56,6 @@ impl Todo {
             tags: Vec::new(),
             sub_tasks: TodoList::new(),
             dependencies: TodoList::new(),
-            next_sub_tasks: TodoList::new(),
-            next_dependencies: TodoList::new(),
             duration: None,
         };
     }
@@ -276,35 +64,40 @@ impl Todo {
         self.title = t;
     }
 
-    pub fn set_due_iso8601(&mut self, s: String) {
+    fn _parse_iso8601(s: String) -> Option<NaiveDateTime> {
         let fmt = "%Y-%m-%d %H:%M:%S";
-        self.due = match NaiveDateTime::parse_from_str(s.as_str(), fmt) {
+        match NaiveDateTime::parse_from_str(s.as_str(), fmt) {
             Ok(e) => Some(e),
             Err(_) => match NaiveDateTime::parse_from_str(&format!("{} 11:59:59", s), fmt) {
                 Ok(e) => Some(e),
                 Err(_) => None,
             },
-        };
+        }
+    }
+
+    pub fn set_due_iso8601(&mut self, s: String) {
+        self.due = Todo::_parse_iso8601(s)
     }
 
     pub fn set_start_iso8601(&mut self, s: String) {
-        let fmt = "%Y-%m-%d %H:%M:%S";
-        self.start = match NaiveDateTime::parse_from_str(s.as_str(), fmt) {
-            Ok(e) => Some(e),
-            Err(_) => match NaiveDateTime::parse_from_str(&format!("{} 11:59:59", s), fmt) {
-                Ok(e) => Some(e),
-                Err(_) => None,
-            },
-        };
+        self.start = Todo::_parse_iso8601(s)
+    }
+
+    pub fn set_completed_iso8601(&mut self, s: String) {
+        self.completed = Todo::_parse_iso8601(s)
     }
 
     pub fn set_repeat(&mut self, rule: String) {
+        // First try to read the cron expression.
         self.repeat = match Schedule::from_str(&rule) {
             Ok(d) => Some(Repeat::Every(d)),
+            // If that does not work, parse as plaintext.
             Err(_) => {
                 let rulel = rule.to_lowercase();
+                // We can say from completed, ot from due.
                 let v = rulel.split("from").collect::<Vec<&str>>();
 
+                // Use hman duration to parse the duration.
                 let dur = match DurationHuman::try_from(v[0]) {
                     Ok(e) => match Duration::from_std(StdDuration::from(&e)) {
                         Ok(e) => e,
@@ -312,7 +105,7 @@ impl Todo {
                     },
                     Err(_) => return,
                 };
-
+                // Finally check if it's from completed.
                 if v.len() > 1 && String::from(v[1]).contains("c") {
                     Some(Repeat::FromCompleted(dur))
                 } else {
@@ -326,9 +119,9 @@ impl Todo {
         self.duration = match DurationHuman::try_from(rule.as_str()) {
             Ok(d) => match Duration::from_std(StdDuration::from(&d)) {
                 Ok(d) => Some(d),
-                Err(error) => panic!("Could not parse duration {}", error),
+                Err(_) => return,
             },
-            Err(error) => panic!("Could not parse duration {}", error),
+            Err(_) => return,
         };
     }
 
@@ -337,7 +130,7 @@ impl Todo {
         if self.completed.is_some() {
             return None;
         }
-
+        // Because we can't complete a task with uncompleted dependencies.
         if self.dependencies.filter(|t| t.completed == None).len() > 0 {
             return None;
         }
@@ -371,95 +164,22 @@ impl Todo {
             }
         };
 
-        t.dependencies = t.next_dependencies;
-        t.next_dependencies = TodoList::new();
-
-        // All subtasks should complete automatically, so that their next itteration is loaded.
-        for i in 0..t.sub_tasks.len() {
-            match t.sub_tasks[i].complete() {
-                Some(e) => t.next_sub_tasks.add(e),
-                None => continue,
-            };
+        for i in 0..t.dependencies.len() {
+            t.dependencies[i].completed = None;
         }
-        t.sub_tasks = t.next_sub_tasks;
-        t.next_sub_tasks = TodoList::new();
+        for i in 0..t.sub_tasks.len() {
+            t.sub_tasks[i].completed = None;
+        }
 
         return Some(t);
     }
 
-    pub fn add_dependency(&mut self, indexes: Vec<usize>, t: Todo) {
-        let mut parent = self;
-
-        parent.completed = None;
-        for i in indexes {
-            parent = &mut parent.dependencies[i];
-            parent.completed = None;
-        }
-
-        parent.dependencies.add(t);
+    pub fn get_dependencies(&mut self) -> &mut TodoList {
+        &mut self.dependencies
     }
 
-    pub fn complete_dependency(&mut self, indexes: Vec<usize>) {
-        let mut parent = self;
-        let mut t: &mut Todo;
-
-        if indexes.len() == 0 {
-            return;
-        }
-
-        t = &mut parent.dependencies[indexes[0]];
-
-        for i in &indexes[1..] {
-            parent = t;
-            t = &mut parent.dependencies[*i];
-        }
-
-        match t.complete() {
-            Some(e) => parent.next_dependencies.add(e),
-            None => return,
-        }
-    }
-
-    pub fn add_sub_task(&mut self, indexes: Vec<usize>, t: Todo) {
-        let mut parent = self;
-
-        for i in indexes {
-            parent = &mut parent.sub_tasks[i];
-        }
-
-        parent.sub_tasks.add(t);
-    }
-
-    pub fn complete_sub_task(&mut self, indexes: Vec<usize>) {
-        let mut parent = self;
-        let mut t: &mut Todo;
-
-        if indexes.len() == 0 {
-            return;
-        }
-
-        t = &mut parent.sub_tasks[indexes[0]];
-
-        for i in &indexes[1..] {
-            parent = t;
-            t = &mut parent.sub_tasks[*i];
-        }
-
-        match t.complete() {
-            Some(e) => parent.next_sub_tasks.add(e),
-            None => return,
-        }
-    }
-
-    pub fn set_completed_iso8601(&mut self, s: String) {
-        let fmt = "%Y-%m-%d %H:%M:%S";
-        self.completed = match NaiveDateTime::parse_from_str(s.as_str(), fmt) {
-            Ok(e) => Some(e),
-            Err(_) => match NaiveDateTime::parse_from_str(&format!("{} 11:59:59", s), fmt) {
-                Ok(e) => Some(e),
-                Err(_) => None,
-            },
-        };
+    pub fn get_sub_tasks(&mut self) -> &mut TodoList {
+        &mut self.sub_tasks
     }
 
     pub fn add_tag(&mut self, t: String) {
@@ -473,20 +193,6 @@ impl Todo {
                 return;
             }
             Err(_) => return,
-        }
-    }
-
-    pub fn to_json(&self) -> String {
-        match serde_json::to_string_pretty(self) {
-            Ok(e) => e,
-            Err(_) => panic!("Couldn't convert to json."),
-        }
-    }
-
-    pub fn from_json(s: &str) -> Self {
-        match serde_json::from_str(s) {
-            Ok(e) => e,
-            Err(_) => panic!("Couldn't convert from json."),
         }
     }
 

@@ -138,7 +138,11 @@ fn main() {
                     Err(_) => continue,
                 };
                 let t = tdl.remove(n);
-                tdl[e].add_dependency(path, t);
+                let mut p = &mut tdl[e];
+                for i in path {
+                    p = &mut p.get_dependencies()[i];
+                }
+                p.get_dependencies().add(t);
             }
             ("cdep", Some(e)) => {
                 println!("path: ");
@@ -157,7 +161,11 @@ fn main() {
                         })
                         .collect(),
                 };
-                tdl[e].complete_dependency(path);
+                let mut t = &mut tdl[e];
+                for i in path {
+                    t = &mut t.get_dependencies()[i]
+                }
+                t.complete();
             }
             ("sub", Some(e)) => {
                 println!("path: ");
@@ -186,7 +194,11 @@ fn main() {
                     Err(_) => continue,
                 };
                 let t = tdl.remove(n);
-                tdl[e].add_sub_task(path, t);
+                let mut p = &mut tdl[e];
+                for i in path {
+                    p = &mut p.get_sub_tasks()[i];
+                }
+                p.get_sub_tasks().add(t);
             }
             ("csub", Some(e)) => {
                 println!("path: ");
@@ -205,7 +217,11 @@ fn main() {
                         })
                         .collect(),
                 };
-                tdl[e].complete_sub_task(path);
+                let mut t = &mut tdl[e];
+                for i in path {
+                    t = &mut t.get_sub_tasks()[i];
+                }
+                t.complete();
             }
             ("save", _) => tdl.to_json_file("test.json"),
             ("load", _) => {
