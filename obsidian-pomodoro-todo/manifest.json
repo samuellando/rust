@@ -1,0 +1,11 @@
+{
+  "id": "obsidian-pomodoro-todo",
+  "name": "Pomodoro Todo",
+  "version": "0.0.0",
+  "minAppVersion": "0.15.0",
+  "description": "This is a sample plugin for Obsidian. This plugin demonstrates some of the capabilities of the Obsidian API.",
+  "author": "Samuel Lando",
+  "authorUrl": "https://github.com/samuellando",
+  "fundingUrl": "https://github.com/samuellando",
+  "isDesktopOnly": false
+}
