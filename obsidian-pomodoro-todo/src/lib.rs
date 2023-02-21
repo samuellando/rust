@@ -1,5 +1,7 @@
 mod obsidian;
+
 use js_sys::JsString;
+use todo::{Todo, TodoList};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -31,15 +33,18 @@ impl ExampleCommand {
     }
 
     pub fn callback(&self) {
-        obsidian::Notice::new("hello from rust");
+        let mut tdl = TodoList::new();
+        tdl.add(Todo::from_title(String::from("test1")));
+        tdl.add(Todo::from_title(String::from("test2")));
+        obsidian::Notice::new(tdl.to_string().as_str());
     }
 }
 
 #[wasm_bindgen]
 pub fn onload(plugin: &obsidian::Plugin) {
     let cmd = ExampleCommand {
-        id: JsString::from("example"),
-        name: JsString::from("Example"),
+        id: JsString::from("todo"),
+        name: JsString::from("todo"),
     };
     plugin.addCommand(JsValue::from(cmd))
 }
