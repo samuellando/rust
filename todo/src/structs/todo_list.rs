@@ -82,13 +82,16 @@ impl TodoList {
 
         for line in lines {
             if line.trim().starts_with("- [ ]")
-                || line.trim().starts_with("- [X]")
+                || line.trim().starts_with("- [x]")
                 || line.trim().starts_with("- Dependencies:")
                 || line.trim().starts_with("- Sub Tasks:")
             {
                 md += line;
                 md += "\n";
             }
+        }
+        if md.len() == 0 {
+            return Self::new();
         }
         md = String::from(&md[0..md.len() - 1]);
 

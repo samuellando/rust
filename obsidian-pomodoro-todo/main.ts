@@ -35,21 +35,27 @@ export default class MyPlugin extends Plugin {
     this.addCommand({
       id: 'parse',
       name: 'parse',
-      editorCallback: (editor: Editor) => {
-        const selection = editor.getValue();
-        const json = rust.parse_mixed_md(selection);
-        new Notice(json);
-      }
-    });
+      callback: async () => {
+        let files = this.app.vault.getMarkdownFiles();
+        const contents: string[] = await Promise.all(files.map((file) => this.app.vault.cachedRead(file)));
 
-    // This adds a simple command that can be triggered anywhere
-    this.addCommand({
-      id: 'open-sample-modal-simple',
-      name: 'Open sample modal (simple)',
-      callback: () => {
-        new SampleModal(this.app).open();
+        const s = rust.parse_all_markdown(contents);
+        let af = this.app.vault.getAbstractFileByPath("output.md");
+        if (af != null) {
+          this.app.vault.delete(af);
+          this.app.vault.create("output.md", s);
+        }
       }
-    });
+    }),
+
+      // This adds a simple command that can be triggered anywhere
+      this.addCommand({
+        id: 'open-sample-modal-simple',
+        name: 'Open sample modal (simple)',
+        callback: () => {
+          new SampleModal(this.app).open();
+        }
+      });
 
     // This adds a settings tab so the user can configure various aspects of the plugin
     this.addSettingTab(new SampleSettingTab(this.app, this));
