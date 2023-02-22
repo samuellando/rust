@@ -76,6 +76,25 @@ impl TodoList {
         return tdl;
     }
 
+    pub fn from_mixed_markdown(s: &str) -> Self {
+        let mut md = String::from("");
+        let lines = s.split("\n");
+
+        for line in lines {
+            if line.trim().starts_with("- [ ]")
+                || line.trim().starts_with("- [X]")
+                || line.trim().starts_with("- Dependencies:")
+                || line.trim().starts_with("- Sub Tasks:")
+            {
+                md += line;
+                md += "\n";
+            }
+        }
+        md = String::from(&md[0..md.len() - 1]);
+
+        return Self::from_markdown(md.as_str());
+    }
+
     fn _from_file(file_name: &str, f: fn(&str) -> Self) -> Self {
         let path = Path::new(file_name);
         let display = path.display();
@@ -100,6 +119,10 @@ impl TodoList {
 
     pub fn from_markdown_file(s: &str) -> Self {
         TodoList::_from_file(s, TodoList::from_markdown)
+    }
+
+    pub fn from_mixed_markdown_file(s: &str) -> Self {
+        TodoList::_from_file(s, TodoList::from_mixed_markdown)
     }
 
     fn _to_file<'a>(file_name: &str, s: String) {

@@ -248,15 +248,15 @@ impl Todo {
         let s = String::from(s);
 
         // Start by parsing the sub lists.
-        let mut lists = Vec::from(["\n  - Dependencies:", "\n  - Sub Tasks:"]);
+        let mut lists = Vec::from(["\n\t- Dependencies:", "\n\t- Sub Tasks:"]);
         lists.sort_by_key(|x| s.find(x));
         let found: Vec<&str> = lists.into_iter().filter(|x| s.find(*x) != None).collect();
 
-        let mut parts: Vec<&str> = s.split("\n  - Dependencies:\n").collect();
+        let mut parts: Vec<&str> = s.split("\n\t- Dependencies:\n").collect();
         if parts.len() == 1 {
-            parts = s.split("\n  - Sub Tasks:").collect();
+            parts = s.split("\n\t- Sub Tasks:").collect();
         } else {
-            let next_parts: Vec<&str> = parts[1].split("\n  - Sub Tasks:\n").collect();
+            let next_parts: Vec<&str> = parts[1].split("\n\t- Sub Tasks:\n").collect();
             parts[1] = next_parts[0];
             if next_parts.len() > 1 {
                 parts.push(next_parts[1]);
@@ -268,11 +268,11 @@ impl Todo {
 
         for i in 1..parts.len() {
             match found[i - 1] {
-                "\n  - Dependencies:" => {
-                    dependencies = TodoList::from_markdown(&parts[i].replace("\n    ", "\n")[4..])
+                "\n\t- Dependencies:" => {
+                    dependencies = TodoList::from_markdown(&parts[i].replace("\n\t\t", "\n")[2..])
                 }
-                "\n  - Sub Tasks:" => {
-                    sub_tasks = TodoList::from_markdown(&parts[i].replace("\n    ", "\n")[4..])
+                "\n\t- Sub Tasks:" => {
+                    sub_tasks = TodoList::from_markdown(&parts[i].replace("\n\t\t", "\n")[2..])
                 }
                 _ => panic!("Unreachable"),
             }
