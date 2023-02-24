@@ -274,7 +274,7 @@ impl Todo {
                 "\n\t- Sub Tasks:" => {
                     sub_tasks = TodoList::from_markdown(&parts[i].replace("\n\t\t", "\n")[2..])
                 }
-                _ => panic!("Unreachable"),
+                _ => panic!("Cannot parse sub list {}", found[i - 1]),
             }
         }
 
@@ -312,7 +312,7 @@ impl Todo {
                         .replace("every ", ""),
                 ),
                 '✅' => task.set_completed_iso8601(task_parts[i + 1].clone()),
-                _ => panic!("Unreachable"),
+                _ => panic!("Cannot parse symbol {}", sym),
             }
         }
 

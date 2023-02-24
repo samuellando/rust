@@ -1,4 +1,4 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, Editor, MarkdownView, TFile, Modal, Notice, Plugin, PluginSettingTab, Setting, MetadataCache, CachedMetadata } from 'obsidian';
 
 import * as rust from "./pkg/obsidian_rust_plugin.js";
 import * as wasmbin from './pkg/obsidian_rust_plugin_bg.wasm';
@@ -32,19 +32,18 @@ export default class MyPlugin extends Plugin {
     // This adds a status bar item to the bottom of the app. Does not work on mobile apps.
     const statusBarItemEl = this.addStatusBarItem();
     statusBarItemEl.setText('Status Bar Text');
+
+    let load_file = async (file: TFile) => {
+      let content = await this.app.vault.cachedRead(file);
+      return rust.parse_to_db(file.path, content);
+    };
+
     this.addCommand({
       id: 'parse',
       name: 'parse',
       callback: async () => {
         let files = this.app.vault.getMarkdownFiles();
-        const contents: string[] = await Promise.all(files.map((file) => this.app.vault.cachedRead(file)));
-
-        const s = rust.parse_all_markdown(contents);
-        let af = this.app.vault.getAbstractFileByPath("output.md");
-        if (af != null) {
-          this.app.vault.delete(af);
-          this.app.vault.create("output.md", s);
-        }
+        files.forEach((f) => load_file(f));
       }
     }),
 
@@ -59,6 +58,8 @@ export default class MyPlugin extends Plugin {
 
     // This adds a settings tab so the user can configure various aspects of the plugin
     this.addSettingTab(new SampleSettingTab(this.app, this));
+
+    this.registerEvent(this.app.vault.on("modify", load_file));
 
     // If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
     // Using this function will automatically remove the event listener when this plugin is disabled.

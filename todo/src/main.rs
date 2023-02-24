@@ -223,11 +223,17 @@ fn main() {
                 }
                 t.complete();
             }
-            ("save", _) => tdl.to_json_file("test.json"),
+            ("save", _) => match tdl.to_json_file("test.json") {
+                Err(e) => print!("{}", e),
+                Ok(_) => continue,
+            },
             ("load", _) => {
                 tdl = TodoList::from_json_file("test.json");
             }
-            ("savemd", _) => tdl.to_markdown_file("test.md"),
+            ("savemd", _) => match tdl.to_markdown_file("test.md") {
+                Err(e) => print!("{}", e),
+                Ok(_) => continue,
+            },
             ("loadmd", _) => {
                 tdl = TodoList::from_markdown_file("test.md");
             }

@@ -128,27 +128,27 @@ impl TodoList {
         TodoList::_from_file(s, TodoList::from_mixed_markdown)
     }
 
-    fn _to_file<'a>(file_name: &str, s: String) {
+    fn _to_file<'a>(file_name: &str, s: String) -> Result<String, String> {
         let path = Path::new(file_name);
         let display = path.display();
 
         // Open the path in read-only mode, returns `io::Result<File>`
         let mut file = match File::create(&path) {
-            Err(why) => panic!("couldn't open {}: {}", display, why),
+            Err(why) => return Err(format!("couldn't open {}: {}", display, why)),
             Ok(file) => file,
         };
         // Write the `LOREM_IPSUM` string to `file`, returns `io::Result<()>`
         match file.write_all(s.as_bytes()) {
-            Err(why) => panic!("couldn't write to {}: {}", display, why),
-            Ok(_) => return,
+            Err(why) => return Err(format!("couldn't write to {}: {}", display, why)),
+            Ok(_) => return Ok(String::from("okay")),
         }
     }
 
-    pub fn to_json_file(&self, s: &str) {
-        TodoList::_to_file(s, self.to_json())
+    pub fn to_json_file(&self, s: &str) -> Result<String, String> {
+        return TodoList::_to_file(s, self.to_json());
     }
 
-    pub fn to_markdown_file(&self, s: &str) {
+    pub fn to_markdown_file(&self, s: &str) -> Result<String, String> {
         TodoList::_to_file(s, self.to_markdown())
     }
 }
